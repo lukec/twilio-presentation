@@ -1,0 +1,221 @@
+# Edit this file with your content. Then run `vroom --vroom` to start
+# the show!
+#
+# See `perldoc Vroom::Vroom` for complete details.
+#
+---- config
+# Basic config options.
+title: Voice apps for fun and profit
+indent: 5
+height: 18
+width: 67
+skip: 0
+
+---- center
+Twilio for Fun and Profit!
+
+by Luke döt Closs
+
+----
+== Overview
+
+* What is Twilio
+* Outbound Activity
+* Inbound Calls
+* Example Apps
+
+----
+== What is Twilio
+
+* Twilio provides a web-service API 
+** to build scalable, reliable communication apps.
+
+----
+== Twilio Services
+
+* Phone Calls
++** Make and Receive Voice calls
++* SMS (Text Messages)
++** Send SMS Messages
+
+----
+== Prices
+
+Twilio uses an easy pricing model:
+* Inbound calls:  1¢/min
+* Outbound calls: 2¢/min
+* Send SMS:       3¢
+* Phone numbers:  $1/month
+
++Plus a $20 credit when you sign up.
+
+----
+== Twilio Alternatives
+
+You can DIY with Asterisk.
+* Cheaper, but more work, less scalable
+
+---- center
+== Show me the Code!
+---- perl,i4
+
+my $twilio = WWW::Twilio::API->new(
+    AccountSid => $acct_sid,
+    AuthToken  => $auth_token,
+);
+
+----
+== Placing a call
+
+* Tell Twilio you want to place a call
++* Twilio sets up the call
++* Once connected, Twilio asks you what to do
++* Your server responds using TwiML
+---- perl,i4
+
+my $response = $twilio->POST(
+    'Calls',
+    Caller => $our_calling_number,
+    Called => $destination_number,
+    Url    => $callback_url,
+);
+
+---- xml,i4
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="woman">Hello, World</Say>
+  <Hangup/> 
+</Response>
+---- center
+== Sending a Text Message
+---- perl,i4
+my $response = $twilio->POST(
+    'SMS/Messages',
+    From => $calling_number
+    To   => $destination_number,
+    Body => $message,
+);
+----
+== Receiving a Call
+
++* Get a phone number from Twilio
++** (optional) use Twilio REST API to pick yer number
++* Hook that number up to a URL
++* Implement that URL to respond with TwiML
++* Profit
+
++Lets see a Real Example™
+----
+== VanTrash Phone-in service
+
++* Voice app to look up garbage day
+
++ Lets see the code
+----
+== Call Flow
+
+* Main Menu
+* Gather response
+* Redirect to next menu
+* Repeat
+
+---- center
+Greeting, only played once at the start.
+
+/call/start
+---- xml,i4
+<Say voice="woman">
+    Hello, you have reached Van Trash.  
+</Say>
+<Redirect>/call/show/main</Redirect>
+---- center
+Main Menu
+
+/call/show/main
+---- xml,i4
+<Gather action="/call/gather/main" numDigits="1" timeout="7">
+  <Say voice="woman">
+    To look up the garbage day, press 1.
+    To leave a message, press 2.
+  </Say>
+</Gather>
+<Say voice="woman">Lets try that again.</Say>
+<Redirect>/call/show/main</Redirect>
+---- center
+Gather Response
+
+/call/gather/main
+---- perl,i2
+sub process_main_menu {
+  my ($self, $req, @args) = @_;
+
+  my $num = $req->parameters->{Digits};
+  if ($num and $num =~ m/^[12]$/) {
+    if ($num == 1) {
+      return '<Redirect>/call/show/lookup_menu</Redirect>';
+    }
+    elsif ($num == 2) {
+      return '<Redirect>/call/show/message_prompt</Redirect>';
+    }
+  }
+  return "<Say voice=\"woman\">Please choose one or two.</Say>"
+      . "<Redirect>/call/show/main</Redirect>";
+}
+---- center
+Receive a Voice Message
+
+/call/show/message_prompt
+---- xml,i2
+<Say voice="woman">
+  Please leave your message for VanTrash. 
+  Press pound or hang up when you are done.
+</Say>
+<Record action="/call/goodbye" finishOnKey="#" maxLength="120"
+ transcribe="true" transcribeCallback="/call/receive/message" />
+<Say voice="woman">Thank you.</Say>
+<Say voice="man">Thank you.</Say>
+<Hangup/>
+---- center
+Receive the Transcription
+
+/call/receive/message
+---- perl,i2
+sub receive_message {
+  my ($self, $req, @args) = @_;
+  my $params = $req->parameters;
+
+  my $body = "A new voicemail is at: $params->{RecordingUrl}\n";
+  if ($params->{TranscriptionStatus} eq 'completed') {
+      $body .= "Transcription: $params->{TranscriptionText}\n";
+  }
+  
+  …
+  send_email_to_luke_and_kevin($body);
+}
+---- center
+Try out VanTrash
+
+  778-785-1357
+
++(And tell your friends)
+----
+Halloween Choose your own adventure
+
+  778-785-1363
+----
+== TwiML Commands
+
+* <Say voice="man|woman">Your text here</Say>
++* <Play>http://your-url.com/foo.mp3</Play>
++* <Gather>…</Gather>
++* <Record />
++* <Sms>Your SMS text</Sms>
++* <Dial>604-555-5555</Dial>
++* <Hangup />
++* <Redirect />
++* <Reject />
++* <Pause />
+---- center
+Now go build cool Voice Apps!
+----
+== The End
